@@ -9,12 +9,12 @@ on:
     branches: [ "main" ]
     paths: 
       - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
+      - '.github/workflows/Frontend_CI.yml'
   pull_request:
     branches: [ "main" ]
     paths: 
       - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
+      - '.github/workflows/Frontend_CI.yml'
 
 jobs:
   build:
