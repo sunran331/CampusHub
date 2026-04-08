@@ -1,0 +1,80 @@
+name: Backend CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths: 
+      - 'backend/**'
+      - '.github/workflows/Backend_CI.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths: 
+      - 'backend/**'
+      - '.github/workflows/Backend_CI.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # 添加 MySQL 服务容器
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root123
+          MYSQL_DATABASE: springboot_app
+          MYSQL_USER: appuser
+          MYSQL_PASSWORD: apppass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -proot123"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    # 1. 检出代码
+    - uses: actions/checkout@v4
+    
+    # 2. 设置 JDK 17
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    
+    # 3. 等待 MySQL 完全启动
+    - name: Wait for MySQL to be ready
+      run: |
+        until mysqladmin ping -h127.0.0.1 -P3306 -uroot -proot123 --silent; do
+          echo "Waiting for MySQL..."
+          sleep 2
+        done
+        echo "MySQL is ready!"
+    
+    # 4. 验证 MySQL 连接
+    - name: Verify MySQL connection
+      run: |
+        mysql -h127.0.0.1 -P3306 -uroot -proot123 -e "SHOW DATABASES;"
+    
+    # 5. 只编译打包，跳过测试
+    - name: Build with Maven (skip tests)
+      working-directory: ./backend
+      run: mvn -B clean package -DskipTests
+      env:
+        SPRING_PROFILES_ACTIVE: ci
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_NAME: springboot_app
+        DB_USERNAME: root
+        DB_PASSWORD: root123
+    
+    # 6. 上传构建产物
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: spring-boot-app
+        path: backend/target/*.jar
+        if-no-files-found: error
